@@ -1,0 +1,77 @@
+name: publish to npm
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (e.g. v1.0.1)"
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify tag matches package.json version
+        run: |
+          TAG="${GITHUB_REF_NAME:-${{ github.event.inputs.tag }}}"
+          TAG_VERSION="${TAG#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "tag version:     $TAG_VERSION"
+          echo "package version: $PKG_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) doesn't match package.json ($PKG_VERSION). Bump version before tagging."
+            exit 1
+          fi
+
+      - name: Build
+        run: pnpm build
+
+      - name: Verify build output
+        run: |
+          if [ ! -f dist/corebase-widget.js ]; then
+            echo "::error::Build did not produce dist/corebase-widget.js"
+            exit 1
+          fi
+          echo "Build size:"
+          ls -lh dist/
+
+      - name: Check if version already published
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if npm view @corebase/widget@$PKG_VERSION version > /dev/null 2>&1; then
+            echo "::error::@corebase/widget@$PKG_VERSION is already published to npm"
+            exit 1
+          fi
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
