@@ -5,7 +5,7 @@ import { IconMessageChatbot, IconSend2, IconX } from "@tabler/icons-react";
 import MarkdownIt from "markdown-it";
 import DOMPurify from "dompurify";
 
-const widgetStyleHref = new URL("./styles/widget.css", import.meta.url).href;
+import widgetStyle from "./styles/widget.css?inline";
 
 const md = new MarkdownIt({
   breaks: true,
@@ -133,7 +133,7 @@ const getToken = async (options: WidgetInitOptions) => {
   return options.authToken;
 };
 
-const ensureLeadingSlash = (value: string) =>
+const stripTrailingSlash = (value: string) =>
   value.endsWith("/") ? value.slice(0, -1) : value;
 
 const generateUuid = () => {
@@ -171,10 +171,9 @@ const createShadowMount = (host: HTMLElement) => {
   const shadowRoot = host.shadowRoot ?? host.attachShadow({ mode: "open" });
   shadowRoot.innerHTML = "";
 
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = widgetStyleHref;
-  shadowRoot.appendChild(link);
+  const styleLink = document.createElement("style");
+  styleLink.textContent = widgetStyle;
+  shadowRoot.appendChild(styleLink);
 
   const mount = document.createElement("div");
   mount.className = "cb-widget-shell";
@@ -194,7 +193,7 @@ const App = ({ options }: { options: WidgetInitOptions }) => {
   const chatIdRef = useRef(options.chatId || generateUuid());
 
   const apiBaseUrl = useMemo(
-    () => ensureLeadingSlash(options.apiBaseUrl),
+    () => stripTrailingSlash(options.apiBaseUrl),
     [options.apiBaseUrl],
   );
 
