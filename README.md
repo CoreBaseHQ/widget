@@ -1,6 +1,6 @@
-# @corebase/widget
+# @corebasehq/widget
 
-Embeddable chat widget for [CoreBase](https://corebasehq.com). Preact + shadow DOM, ~40KB gzipped, drops into any page (PHP, Rails, plain HTML) with a single script tag.
+Embeddable chat widget for [CoreBase](https://corebasehq.com). Preact + shadow DOM, ~67KB gzipped, drops into any page (PHP, Rails, plain HTML) with a script tag.
 
 ## Install
 
@@ -8,47 +8,87 @@ Embeddable chat widget for [CoreBase](https://corebasehq.com). Preact + shadow D
 
 ```html
 <script
-  src="https://unpkg.com/@corebase/widget/dist/corebase-widget.js"
-  data-public-id="YOUR_TENANT_PUBLIC_ID"
-  data-jwt="<server_generated_jwt>"
-  defer>
+  src="https://unpkg.com/@corebasehq/widget/dist/corebase-widget.js"
+  defer
+></script>
+
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    window.CorebaseWidget.init({
+      apiBaseUrl: "https://api.corebasehq.com",
+      publicId: "YOUR_TENANT_PUBLIC_ID",
+      authToken: "<server_generated_jwt>",
+    });
+  });
 </script>
 ```
 
 ### npm
 
 ```bash
-npm install @corebase/widget
+npm install @corebasehq/widget
 ```
 
 ```ts
-import "@corebase/widget";
+import "@corebasehq/widget";
+
+window.CorebaseWidget.init({
+  apiBaseUrl: "https://api.corebasehq.com",
+  publicId: "YOUR_TENANT_PUBLIC_ID",
+  authToken: "<server_generated_jwt>",
+});
 ```
 
-The IIFE bundle auto-mounts on load — no API to call.
+The bundle attaches `window.CorebaseWidget` on load. Call `init()` once your auth token is ready. There is no auto-mount.
 
-## Configuration
+## API
 
-| Data attribute | Required | Description |
+```ts
+window.CorebaseWidget.init({
+  apiBaseUrl: string,         // CoreBase backend URL
+  publicId?: string,          // Tenant public ID (Settings → Widget)
+  authToken?: string,         // Static JWT
+  getAuthToken?: () => Promise<string> | string,  // Async fetcher for refresh
+  title?: string,             // Header text (default: "CoreBase")
+  placeholder?: string,       // Input placeholder (default: "Ask a question")
+  initialOpen?: boolean,      // Start expanded (default: false)
+  containerId?: string,       // Mount inside an existing element ID;
+                              // omit for floating launcher
+  chatId?: string,            // Resume a specific conversation
+  primaryColor?: string,      // Accent color, any CSS color (default: #0b5fff)
+  logoUrl?: string,           // Custom logo in header
+  zIndex?: number,            // Stacking order (default: 2147483000)
+});
+
+window.CorebaseWidget.destroy();  // Tear down and remove from DOM
+```
+
+Either `authToken` or `getAuthToken` is required for authenticated calls. Use `getAuthToken` when your token needs to be refreshed periodically — the widget calls it before each request.
+
+## JWT
+
+The token must be signed with your tenant's B2B secret (CoreBase panel → Settings → Widget → Rotate secret). Minimum claims:
+
+| Claim | Required | Description |
 |---|---|---|
-| `data-public-id` | yes | Tenant public ID from CoreBase panel → Settings → Widget |
-| `data-jwt` | yes | Server-signed JWT (`user_id`, `is_admin`, optional `user_attrs`) |
-| `data-mount-selector` | no | CSS selector to mount inline; omit for floating launcher |
-| `data-theme` | no | `light` / `dark` — defaults to host page color scheme |
-| `data-language` | no | `en` / `tr` — defaults to browser locale |
+| `sub` | yes | End-user ID (used in audit logs) |
+| `role` / `is_admin` | no | Promotes the user to admin (defaults to non-admin) |
+| `user_attrs` | no | Object with RBAC attributes (e.g. `{ "dept": "hr" }`) |
+| `exp` | recommended | Standard expiry — keep short (15–30 min), refresh via `getAuthToken` |
 
-JWT must be signed with the tenant's B2B secret (Settings → Widget → Rotate secret).
+Sign on your server only — the secret never reaches the browser.
 
 ## Security
 
-- Iframe + shadow DOM isolated — host page CSS / JS cannot affect widget and vice versa.
-- All traffic to CoreBase Cloud over TLS 1.2+. Raw row data never crosses the wire — see [Zero Raw Data Egress](https://docs.corebasehq.com/concepts/zero-raw-data-egress).
-- JWT validation happens server-side per CoreBase; expired tokens are rejected.
+- **Shadow DOM isolation** — widget styles never leak into the host page and vice versa.
+- **DOMPurify sanitization** — markdown rendered from model output is sanitized against XSS before insertion.
+- **TLS 1.2+** for all traffic to CoreBase Cloud. Raw row data never crosses the wire — see [Zero Raw Data Egress](https://docs.corebasehq.com/concepts/zero-raw-data-egress).
+- **Server-side JWT verification** — expired or invalid tokens are rejected by CoreBase before the request hits any tenant data.
 
 ## Docs
 
-- [Widget integration guide](https://docs.corebasehq.com/platform/widget)
-- [Generating the JWT (PHP / Node examples)](https://docs.corebasehq.com/platform/widget#generating-the-jwt-server-side)
+- [Widget integration guide](https://docs.corebasehq.com/platform/widget) — full walkthrough with PHP / Node JWT examples
+- [API reference](https://docs.corebasehq.com/api-reference/introduction)
 
 ## License
 
