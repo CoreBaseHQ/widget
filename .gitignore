@@ -1,0 +1,7 @@
+node_modules
+dist
+.DS_Store
+
+# Test/demo-only files; do not push
+src/demo.tsx
+index.html
