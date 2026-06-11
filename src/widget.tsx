@@ -14,6 +14,16 @@ const md = new MarkdownIt({
   html: false,
 });
 
+// Force every rendered link to open safely: no referrer leak, no reverse
+// tabnabbing. DOMPurify already strips event handlers and unknown protocols;
+// this hardens the links it does keep.
+DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+  if (node.tagName === "A") {
+    node.setAttribute("target", "_blank");
+    node.setAttribute("rel", "noopener noreferrer nofollow");
+  }
+});
+
 const renderMarkdown = (text: string): string => {
   try {
     const dirty = md.render(text);
@@ -52,6 +62,7 @@ type ChatMessage = {
   id: string;
   role: Role;
   content: string;
+  error?: string;
 };
 
 type WidgetInitOptions = {
@@ -167,6 +178,22 @@ const stripSources = (text: string) => {
   return text.slice(0, index).trimEnd();
 };
 
+// The server suppresses tool-call fences for widget requests, but strip them
+// here too as defense-in-depth: tool calls carry internal tool names and
+// arguments (e.g. SQL) that must never surface to an end user. Removes both
+// completed ```tool_call ... ``` blocks and a trailing partial fence still
+// streaming in, so nothing flashes mid-stream.
+const stripToolCalls = (text: string) => {
+  let out = text.replace(/```tool_call\b[\s\S]*?```/g, "");
+  const partial = out.indexOf("```tool_call");
+  if (partial !== -1) {
+    out = out.slice(0, partial);
+  }
+  return out.trimEnd();
+};
+
+const sanitizeStream = (text: string) => stripToolCalls(stripSources(text));
+
 const createShadowMount = (host: HTMLElement) => {
   const shadowRoot = host.shadowRoot ?? host.attachShadow({ mode: "open" });
   shadowRoot.innerHTML = "";
@@ -187,7 +214,6 @@ const App = ({ options }: { options: WidgetInitOptions }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const chatIdRef = useRef(options.chatId || generateUuid());
@@ -213,7 +239,6 @@ const App = ({ options }: { options: WidgetInitOptions }) => {
       return;
     }
 
-    setError(null);
     setSending(true);
     setInput("");
 
@@ -260,7 +285,7 @@ const App = ({ options }: { options: WidgetInitOptions }) => {
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessage.id
-              ? { ...msg, content: stripSources(bodyText) }
+              ? { ...msg, content: bodyText }
               : msg,
           ),
         );
@@ -277,7 +302,7 @@ const App = ({ options }: { options: WidgetInitOptions }) => {
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessage.id
-                ? { ...msg, content: stripSources(msg.content + chunk) }
+                ? { ...msg, content: msg.content + chunk }
                 : msg,
             ),
           );
@@ -288,7 +313,14 @@ const App = ({ options }: { options: WidgetInitOptions }) => {
         err instanceof Error
           ? `${DEFAULT_ERROR_PREFIX}${err.message}`
           : "Bilinmeyen hata";
-      setError(message);
+      // Attach the error to the assistant turn itself so it renders inside
+      // the conversation (and the loading dots stop, since the bubble is no
+      // longer "pending").
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessage.id ? { ...msg, error: message } : msg,
+        ),
+      );
     } finally {
       setSending(false);
     }
@@ -338,25 +370,38 @@ const App = ({ options }: { options: WidgetInitOptions }) => {
           {!hasMessages && (
             <div className="cb-empty">{DEFAULT_EMPTY_STATE}</div>
           )}
-          {messages.map((message) => (
+          {messages.map((message) => {
+            // Sanitize at render time so the stored stream stays raw (a
+            // tool fence split across chunks reassembles correctly before
+            // being stripped). Keeps internal tool calls / source markers
+            // out of what the end user sees.
+            const display = sanitizeStream(message.content);
+            return (
             <div key={message.id} className={`cb-message cb-${message.role}`}>
               <div className="cb-bubble">
-                {message.content ? (
+                {display && (
                   <div
                     dangerouslySetInnerHTML={{
-                      __html: renderMarkdown(message.content),
+                      __html: renderMarkdown(display),
                     }}
                   />
+                )}
+                {message.error ? (
+                  <div className="cb-bubble-error">{message.error}</div>
                 ) : (
-                  <div className="cb-loading">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
+                  // No content yet and no error → the turn is still pending.
+                  !display && (
+                    <div className="cb-loading">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
+                  )
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
           <div ref={endRef} />
         </div>
 
@@ -379,8 +424,6 @@ const App = ({ options }: { options: WidgetInitOptions }) => {
             {!sending && <IconSend2 size={16} stroke={2.1} />}
           </button>
         </div>
-
-        {error && <div className="cb-error">{error}</div>}
       </div>
     </div>
   );

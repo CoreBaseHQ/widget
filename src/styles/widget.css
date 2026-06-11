@@ -232,6 +232,21 @@
   font-size: 12px;
 }
 
+/* Error rendered inside an assistant turn (failed request). */
+.cb-bubble-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: #ff9f9f;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.cb-bubble-error::before {
+  content: "⚠";
+  flex-shrink: 0;
+}
+
 .cb-loading {
   display: flex;
   gap: 4px;
