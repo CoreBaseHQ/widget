@@ -1,6 +1,6 @@
 {
   "name": "@corebasehq/widget",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Corebase chat widget",
   "private": false,
   "type": "module",
