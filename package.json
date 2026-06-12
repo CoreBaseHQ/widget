@@ -18,6 +18,14 @@
   ],
   "author": "CorebaseHQ",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CoreBaseHQ/widget.git"
+  },
+  "homepage": "https://github.com/CoreBaseHQ/widget#readme",
+  "bugs": {
+    "url": "https://github.com/CoreBaseHQ/widget/issues"
+  },
   "packageManager": "pnpm@10.28.0",
   "files": [
     "dist",
