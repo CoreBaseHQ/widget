@@ -58,6 +58,8 @@ window.CorebaseWidget.init({
   primaryColor?: string,      // Accent color, any CSS color (default: #0b5fff)
   logoUrl?: string,           // Custom logo in header
   zIndex?: number,            // Stacking order (default: 2147483000)
+  fontFamily?: string,        // CSS font-family (default: native system stack)
+  fontUrl?: string,           // Stylesheet URL that loads the font (e.g. Google Fonts)
 });
 
 window.CorebaseWidget.destroy();  // Tear down and remove from DOM
