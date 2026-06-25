@@ -26,6 +26,13 @@ export type WidgetInitOptions = {
   /** Optional stylesheet URL that defines the font (e.g. a Google Fonts link).
    *  Loaded into the page so `fontFamily` resolves. */
   fontUrl?: string;
+  /** Enable the voice mode mic button. Requires the tenant to have configured
+   *  voice (BYOK Deepgram/ElevenLabs keys) in the panel. Default false. */
+  voiceEnabled?: boolean;
+  /** Color theme. `"auto"` follows the visitor's OS preference. Default `"dark"`. */
+  theme?: "light" | "dark" | "auto";
+  /** UI language. Omit to auto-detect from the browser (falls back to English). */
+  locale?: "en" | "tr";
 };
 
 export type WidgetApi = {
