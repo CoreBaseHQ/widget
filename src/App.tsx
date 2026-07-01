@@ -467,6 +467,14 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
               )}
             </button>
           </div>
+          <a
+            className="cb-credit"
+            href="https://corebasehq.com"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Powered by <strong>CoreBase</strong>
+          </a>
         </div>
           </>
         )}
