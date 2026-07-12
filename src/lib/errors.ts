@@ -11,6 +11,9 @@ const CODE_KEY: Record<string, keyof Strings> = {
   end_user_quota_exceeded: "errQuota",
   rate_limit_exceeded: "errRate",
   llm_key_required: "errLlmKey",
+  // Site owner's prepaid balance is empty — the visitor can't fix it, so the
+  // message points them at the owner (never mentions billing).
+  insufficient_credits: "errBalance",
   voice_unavailable: "errVoiceUnavailable",
   voice_disabled: "errVoiceDisabled",
   voice_not_configured: "errVoiceNotConfigured",

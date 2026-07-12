@@ -37,6 +37,7 @@ export type Strings = {
   errQuota: string;
   errRate: string;
   errLlmKey: string;
+  errBalance: string;
   errVoiceUnavailable: string;
   errVoiceDisabled: string;
   errVoiceNotConfigured: string;
@@ -76,6 +77,8 @@ const en: Strings = {
   errRate: "Too many requests right now — please wait a moment and try again.",
   errLlmKey:
     "This assistant isn't fully set up yet. Please contact the site owner.",
+  errBalance:
+    "The assistant is temporarily unavailable. Please contact the site owner.",
   errVoiceUnavailable: "Voice isn't available right now.",
   errVoiceDisabled: "Voice isn't enabled for this assistant.",
   errVoiceNotConfigured: "Voice isn't set up yet.",
@@ -116,6 +119,8 @@ const tr: Strings = {
   errRate: "Şu anda çok fazla istek var — lütfen biraz bekleyip tekrar deneyin.",
   errLlmKey:
     "Asistan henüz tam olarak kurulmamış. Lütfen site sahibiyle iletişime geçin.",
+  errBalance:
+    "Asistan geçici olarak kullanılamıyor. Lütfen site sahibiyle iletişime geçin.",
   errVoiceUnavailable: "Sesli görüşme şu anda kullanılamıyor.",
   errVoiceDisabled: "Bu asistan için ses etkin değil.",
   errVoiceNotConfigured: "Ses henüz ayarlanmamış.",
