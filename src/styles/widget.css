@@ -163,7 +163,8 @@
 
 .cb-widget.is-expanded .cb-input {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
 }
 
 .cb-widget.is-expanded .cb-composer {
@@ -364,7 +365,14 @@
 
 .cb-message.cb-user .cb-bubble {
   background: var(--cb-accent, #0b5fff);
+  /* Readable text on any accent: black on a light one, white on a dark one,
+     derived from the accent's own lightness. The first declaration is the
+     fallback for browsers without relative-color syntax. */
   color: #ffffff;
+  color: oklch(
+    from var(--cb-accent, #0b5fff)
+    clamp(0, calc((0.65 - l) * infinity), 1) 0 h
+  );
   border-bottom-right-radius: 6px;
   box-shadow: 0 2px 12px
     color-mix(in srgb, var(--cb-accent, #0b5fff) 35%, transparent);
@@ -420,6 +428,10 @@
 
 .cb-bubble a {
   color: #ffffff;
+  color: oklch(
+    from var(--cb-accent, #0b5fff)
+    clamp(0, calc((0.65 - l) * infinity), 1) 0 h
+  );
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -673,7 +685,13 @@
   border-radius: 50%;
   border: 0;
   background: var(--cb-accent, #0b5fff);
+  /* Readable icon on any accent — same luminance-based pick as the user
+     bubble. First declaration is the pre-relative-color fallback. */
   color: #ffffff;
+  color: oklch(
+    from var(--cb-accent, #0b5fff)
+    clamp(0, calc((0.65 - l) * infinity), 1) 0 h
+  );
   cursor: pointer;
   display: grid;
   place-items: center;
@@ -695,14 +713,20 @@
   opacity: 0.45;
   cursor: not-allowed;
   background: rgba(var(--cb-fg-rgb), 0.12);
+  /* Disabled drops the accent fill for a neutral one, so the icon can't use
+     the accent-derived color — fall back to the theme text token so it stays
+     readable in both light and dark. */
+  color: var(--cb-text);
 }
 
 .cb-spinner {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 2px solid rgba(var(--cb-fg-rgb), 0.35);
-  border-top-color: #ffffff;
+  /* Shown inside the send button, so it rides on the accent — follow the
+     button's readable color instead of a fixed white. */
+  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
   animation: cb-spin 0.7s linear infinite;
 }
 
