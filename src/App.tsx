@@ -8,6 +8,7 @@ import {
   IconMicrophone,
   IconPencilPlus,
   IconPlayerStopFilled,
+  IconPlugConnected,
   IconSend2,
   IconX,
 } from "@tabler/icons-react";
@@ -52,6 +53,10 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
   const [view, setView] = useState<"chat" | "history">("chat");
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  // "Connected accounts" portal — button shows only when the workspace has
+  // end-user-connectable apps (checked lazily on first open).
+  const [accountsAvailable, setAccountsAvailable] = useState(false);
+  const accountsChecked = useRef(false);
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const chatIdRef = useRef(options.chatId || generateUuid());
@@ -247,6 +252,49 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
     }
   }, [apiBaseUrl, authHeaders]);
 
+  // Connected-accounts availability — one lazy check on first open; a failure
+  // just leaves the button hidden (nothing to fall over).
+  useEffect(() => {
+    if (!open || accountsChecked.current) return;
+    accountsChecked.current = true;
+    (async () => {
+      try {
+        const res = await fetch(`${apiBaseUrl}/api/widget/connect/catalog`, {
+          headers: await authHeaders(),
+        });
+        if (res.ok) {
+          const items = (await res.json()) as unknown[];
+          setAccountsAvailable(Array.isArray(items) && items.length > 0);
+        }
+      } catch {
+        /* keep hidden */
+      }
+    })();
+  }, [open, apiBaseUrl, authHeaders]);
+
+  const openAccounts = useCallback(async () => {
+    // One-time code -> hosted portal in a new tab (the page exchanges it for
+    // its own short-lived session; the widget's token never enters a URL).
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/api/widget/connect/portal-code`,
+        { method: "POST", headers: await authHeaders() },
+      );
+      if (!res.ok) return;
+      const { code } = (await res.json()) as { code: string };
+      const base =
+        options.accountsPortalUrl ??
+        "https://corebasehq.com/connect/accounts";
+      window.open(
+        `${base}?code=${encodeURIComponent(code)}`,
+        "_blank",
+        "noopener",
+      );
+    } catch {
+      /* ignore — user can retry */
+    }
+  }, [apiBaseUrl, authHeaders, options.accountsPortalUrl]);
+
   const openChat = useCallback(
     async (id: string) => {
       setView("chat");
@@ -293,9 +341,8 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
 
   return (
     <div
-      className={`cb-widget ${isLight ? "cb-theme-light" : ""} ${
-        open ? "is-open" : ""
-      } ${expanded ? "is-expanded" : ""}`}
+      className={`cb-widget ${isLight ? "cb-theme-light" : ""} ${open ? "is-open" : ""
+        } ${expanded ? "is-expanded" : ""}`}
     >
       <button
         type="button"
@@ -347,6 +394,17 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
             >
               <IconPencilPlus size={17} stroke={2} />
             </button>
+            {accountsAvailable && (
+              <button
+                type="button"
+                className="cb-icon-btn"
+                onClick={openAccounts}
+                aria-label={s.accountsTitle}
+                title={s.accountsTitle}
+              >
+                <IconPlugConnected size={17} stroke={2} />
+              </button>
+            )}
             <button
               type="button"
               className={`cb-icon-btn ${view === "history" ? "is-active" : ""}`}
@@ -395,87 +453,87 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
           />
         ) : (
           <>
-        <div className="cb-messages">
-          {!hasMessages && (
-            <div className="cb-empty">
-              <div className="cb-empty-icon">
-                <IconMessageChatbot size={26} stroke={1.5} />
-              </div>
-              <div className="cb-empty-text">{s.empty}</div>
-            </div>
-          )}
-          {messages.map((message, i) => (
-            <Message
-              key={message.id}
-              message={message}
-              streaming={sending && i === lastIndex && message.role === "assistant"}
-            />
-          ))}
-          <div ref={endRef} />
-        </div>
-
-        {voiceEnabled && (
-          <VoiceOverlay
-            status={voice.status}
-            error={voice.error}
-            level={voice.level}
-            phase={voice.phase}
-            onEnd={() => voice.stop()}
-            strings={s}
-          />
-        )}
-
-        <div className="cb-input">
-          <div className="cb-composer">
-            <textarea
-              ref={inputRef}
-              placeholder={options.placeholder || s.placeholder}
-              value={input}
-              onInput={(event) => setInput(event.currentTarget.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-            />
-            {voiceEnabled && (
-              <button
-                type="button"
-                className={`cb-mic ${voice.status === "live" ? "is-live" : ""}`}
-                onClick={() => voice.toggle()}
-                disabled={voice.status === "connecting"}
-                aria-label={
-                  voice.status === "live" ? s.stopVoice : s.startVoice
-                }
-                aria-pressed={voice.status === "live"}
-              >
-                {voice.status === "live" ? (
-                  <IconPlayerStopFilled size={16} stroke={2.1} />
-                ) : (
-                  <IconMicrophone size={17} stroke={2} />
-                )}
-              </button>
-            )}
-            <button
-              type="button"
-              className="cb-send"
-              onClick={sendMessage}
-              disabled={sending || !input.trim()}
-              aria-label={sending ? s.sending : s.send}
-            >
-              {sending ? (
-                <span className="cb-spinner" />
-              ) : (
-                <IconSend2 size={17} stroke={2.1} />
+            <div className="cb-messages">
+              {!hasMessages && (
+                <div className="cb-empty">
+                  <div className="cb-empty-icon">
+                    <IconMessageChatbot size={26} stroke={1.5} />
+                  </div>
+                  <div className="cb-empty-text">{s.empty}</div>
+                </div>
               )}
-            </button>
-          </div>
-          <a
-            className="cb-credit"
-            href="https://corebasehq.com"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Powered by <strong>CoreBase</strong>
-          </a>
-        </div>
+              {messages.map((message, i) => (
+                <Message
+                  key={message.id}
+                  message={message}
+                  streaming={sending && i === lastIndex && message.role === "assistant"}
+                />
+              ))}
+              <div ref={endRef} />
+            </div>
+
+            {voiceEnabled && (
+              <VoiceOverlay
+                status={voice.status}
+                error={voice.error}
+                level={voice.level}
+                phase={voice.phase}
+                onEnd={() => voice.stop()}
+                strings={s}
+              />
+            )}
+
+            <div className="cb-input">
+              <div className="cb-composer">
+                <textarea
+                  ref={inputRef}
+                  placeholder={options.placeholder || s.placeholder}
+                  value={input}
+                  onInput={(event) => setInput(event.currentTarget.value)}
+                  onKeyDown={handleKeyDown}
+                  rows={1}
+                />
+                {voiceEnabled && (
+                  <button
+                    type="button"
+                    className={`cb-mic ${voice.status === "live" ? "is-live" : ""}`}
+                    onClick={() => voice.toggle()}
+                    disabled={voice.status === "connecting"}
+                    aria-label={
+                      voice.status === "live" ? s.stopVoice : s.startVoice
+                    }
+                    aria-pressed={voice.status === "live"}
+                  >
+                    {voice.status === "live" ? (
+                      <IconPlayerStopFilled size={16} stroke={2.1} />
+                    ) : (
+                      <IconMicrophone size={17} stroke={2} />
+                    )}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="cb-send"
+                  onClick={sendMessage}
+                  disabled={sending || !input.trim()}
+                  aria-label={sending ? s.sending : s.send}
+                >
+                  {sending ? (
+                    <span className="cb-spinner" />
+                  ) : (
+                    <IconSend2 size={17} stroke={2.1} />
+                  )}
+                </button>
+              </div>
+              <a
+                className="cb-credit"
+                href="https://corebasehq.com"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Powered by <strong>CoreBase</strong>
+              </a>
+            </div>
           </>
         )}
       </div>

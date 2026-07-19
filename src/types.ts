@@ -31,6 +31,10 @@ export type WidgetInitOptions = {
   voiceEnabled?: boolean;
   /** Color theme. `"auto"` follows the visitor's OS preference. Default `"dark"`. */
   theme?: "light" | "dark" | "auto";
+  /** Hosted "connected accounts" portal URL. The Accounts button (shown only
+   *  when the workspace has end-user-connectable apps) opens it with a
+   *  one-time code. Default `https://corebasehq.com/connect/accounts`. */
+  accountsPortalUrl?: string;
   /** UI language. Omit to auto-detect from the browser (falls back to English). */
   locale?: "en" | "tr";
 };

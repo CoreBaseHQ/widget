@@ -18,6 +18,7 @@ export type Strings = {
   close: string;
   newConversation: string;
   historyTitle: string;
+  accountsTitle: string;
   // history view
   conversations: string;
   newShort: string;
@@ -60,6 +61,7 @@ const en: Strings = {
   close: "Close",
   newConversation: "New conversation",
   historyTitle: "History",
+  accountsTitle: "Connected accounts",
   conversations: "Conversations",
   newShort: "New",
   noConversations: "No conversations yet",
@@ -101,6 +103,7 @@ const tr: Strings = {
   close: "Kapat",
   newConversation: "Yeni sohbet",
   historyTitle: "Geçmiş",
+  accountsTitle: "Bağlı hesaplar",
   conversations: "Sohbetler",
   newShort: "Yeni",
   noConversations: "Henüz sohbet yok",
