@@ -69,16 +69,17 @@ Either `authToken` or `getAuthToken` is required for authenticated calls. Use `g
 
 ## JWT
 
-The token must be signed with your tenant's B2B secret (CoreBase panel → Settings → Widget → Rotate secret). Minimum claims:
+The token must be signed with your widget key's B2B secret (CoreBase panel → Widget → Rotate secret). Minimum claims:
 
 | Claim | Required | Description |
 |---|---|---|
 | `sub` | yes | End-user ID (used in audit logs) |
-| `role` / `is_admin` | no | Promotes the user to admin (defaults to non-admin) |
-| `user_attrs` | no | Object with RBAC attributes (e.g. `{ "dept": "hr" }`) |
-| `exp` | recommended | Standard expiry — keep short (15–30 min), refresh via `getAuthToken` |
+| `exp` | yes | Expiry — tokens without one are rejected. Keep short (15–30 min), refresh via `getAuthToken` |
+| any other top-level claim | no | Forwarded to claim-templated source headers (`{{claim.<name>}}`) |
 
-Sign on your server only — the secret never reaches the browser.
+Widget sessions are always end-user sessions: a `role` / `is_admin` claim is ignored, so a leaked token can never reach admin surfaces.
+
+Sign on your server only — the secret never reaches the browser. The official SDKs do this in one call: `createWidgetToken` from [`@corebasehq/node`](https://docs.corebasehq.com/api-reference/sdks) or `create_widget_token` from the Python SDK.
 
 ## Security
 
