@@ -47,6 +47,10 @@ export function useVoiceSession(
   getBearer: () => Promise<string | undefined>,
   strings: Strings,
   onTranscript?: (segment: VoiceTranscript) => void,
+  /** The conversation on screen. Voice joins it instead of starting its own,
+   *  so toggling voice off and on continues where it left off — and typed and
+   *  spoken turns end up in one transcript. */
+  chatId?: string,
 ) {
   const [status, setStatus] = useState<VoiceStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +98,7 @@ export function useVoiceSession(
           ...(options.publicId ? { "X-Public-Id": options.publicId } : {}),
           ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
         },
+        body: JSON.stringify({ chat_id: chatId }),
       });
       if (!res.ok) {
         // Specific, localized reason (quota / disabled / not set up / …).
@@ -225,12 +230,30 @@ export function useVoiceSession(
       setStatus("error");
       await stop();
     }
-  }, [options, getBearer, strings, stop, onTranscript]);
+  }, [options, getBearer, strings, stop, onTranscript, chatId]);
 
   const toggle = useCallback(() => {
     if (roomRef.current) void stop();
     else void start();
   }, [start, stop]);
 
-  return { status, error, level, phase, start, stop, toggle };
+  /** Send a typed message into the live call, so the answer is spoken in the
+   *  same conversation instead of arriving as silent text somewhere else.
+   *  Returns false when there's no call to send it into. */
+  const sendText = useCallback(async (text: string) => {
+    const r = roomRef.current;
+    const body = text.trim();
+    if (!r || !body) return false;
+    try {
+      await r.localParticipant.publishData(
+        new TextEncoder().encode(JSON.stringify({ text: body })),
+        { reliable: true, topic: "cb.text" },
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  return { status, error, level, phase, start, stop, toggle, sendText };
 }

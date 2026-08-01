@@ -115,6 +115,7 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
     () => getToken(options),
     s,
     onTranscript,
+    chatIdRef.current,
   );
 
   useEffect(() => {
@@ -241,6 +242,21 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
       return;
     }
     setInput("");
+
+    // Mid-call, a typed message goes into the call: the assistant speaks the
+    // answer and it stays in the same conversation. The bubble is added here
+    // because nothing transcribes what you typed — the reply arrives through
+    // the usual transcript mirroring.
+    if (voice.status === "live") {
+      const sent = await voice.sendText(trimmed);
+      if (sent) {
+        setMessages((prev) => [
+          ...prev,
+          { id: `user-${Date.now()}`, role: "user", content: trimmed },
+        ]);
+        return;
+      }
+    }
     await runTurn({
       id: `user-${Date.now()}`,
       role: "user",
