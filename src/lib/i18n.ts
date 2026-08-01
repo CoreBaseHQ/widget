@@ -47,6 +47,13 @@ export type Strings = {
   errNetwork: string;
   errSendGeneric: string;
   errVoiceGeneric: string;
+  // confirmation — the assistant wants to change something for this visitor
+  confirmTitle: string;
+  confirmApprove: string;
+  confirmReject: string;
+  confirmApproved: string;
+  confirmRejected: string;
+  confirmFailed: string;
 };
 
 const en: Strings = {
@@ -89,6 +96,12 @@ const en: Strings = {
   errNetwork: "Couldn't reach the assistant. Check your connection and try again.",
   errSendGeneric: "Couldn't send your message. Please try again.",
   errVoiceGeneric: "Couldn't start voice. Please try again.",
+  confirmTitle: "The assistant wants to",
+  confirmApprove: "Confirm",
+  confirmReject: "Cancel",
+  confirmApproved: "Confirmed — working on it.",
+  confirmRejected: "Cancelled. Nothing was changed.",
+  confirmFailed: "Couldn't record your answer. Please try again.",
 };
 
 const tr: Strings = {
@@ -133,6 +146,12 @@ const tr: Strings = {
     "Asistana ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.",
   errSendGeneric: "Mesajınız gönderilemedi. Lütfen tekrar deneyin.",
   errVoiceGeneric: "Sesli görüşme başlatılamadı. Lütfen tekrar deneyin.",
+  confirmTitle: "Asistan şunu yapmak istiyor:",
+  confirmApprove: "Onayla",
+  confirmReject: "Vazgeç",
+  confirmApproved: "Onaylandı — işleme alınıyor.",
+  confirmRejected: "İptal edildi. Hiçbir şey değiştirilmedi.",
+  confirmFailed: "Yanıtın kaydedilemedi. Lütfen tekrar dene.",
 };
 
 const TABLE: Record<Locale, Strings> = { en, tr };

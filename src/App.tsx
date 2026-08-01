@@ -16,6 +16,9 @@ import {
 import type { ChatMessage, WidgetInitOptions } from "./types";
 
 type ChatSummary = { id: string; title: string | null; created_at: string };
+/** A change the assistant is asking this visitor to confirm. `prompt` is a
+ *  plain sentence written by the server — never a tool name or arguments. */
+type Confirmation = { id: string; prompt: string };
 import { generateUuid } from "./lib/uuid";
 import {
   useVoiceSession,
@@ -57,6 +60,10 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
   // end-user-connectable apps (checked lazily on first open).
   const [accountsAvailable, setAccountsAvailable] = useState(false);
   const accountsChecked = useRef(false);
+  // Changes waiting on this visitor's Confirm / Cancel.
+  const [confirmations, setConfirmations] = useState<Confirmation[]>([]);
+  const [deciding, setDeciding] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const chatIdRef = useRef(options.chatId || generateUuid());
@@ -120,20 +127,16 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, open]);
 
-  const sendMessage = async () => {
-    const trimmed = input.trim();
-    if (!trimmed || sending) {
+  // One assistant turn. `userMessage` is omitted when the turn is a
+  // continuation — after the visitor answers a confirmation, the server acts on
+  // that answer and the assistant reports back, with nothing new to say from
+  // this side.
+  const runTurn = async (userMessage?: ChatMessage) => {
+    if (sending) {
       return;
     }
 
     setSending(true);
-    setInput("");
-
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: trimmed,
-    };
 
     const assistantMessage: ChatMessage = {
       id: `assistant-${Date.now()}`,
@@ -141,7 +144,12 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
       content: "",
     };
 
-    setMessages((prev) => [...prev, userMessage, assistantMessage]);
+    const outgoing = userMessage ? [...messages, userMessage] : messages;
+    setMessages((prev) =>
+      userMessage
+        ? [...prev, userMessage, assistantMessage]
+        : [...prev, assistantMessage],
+    );
 
     try {
       const token = await getToken(options);
@@ -154,7 +162,11 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
         },
         body: JSON.stringify({
           id: chatIdRef.current,
-          messages: [...messages, userMessage].map((message) => ({
+          // The server rebuilds the conversation from what it stored; this is
+          // only how the new message travels. `resume` says there isn't one —
+          // the visitor answered a confirmation and the turn continues.
+          resume: !userMessage,
+          messages: outgoing.map((message) => ({
             role: message.role,
             parts: [{ type: "text", text: message.content }],
           })),
@@ -216,7 +228,24 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
       );
     } finally {
       setSending(false);
+      // A turn can end with the assistant waiting on the visitor (a change it
+      // wants to make). The server writes that when the stream closes, so only
+      // now is the answer accurate.
+      void refreshConfirmations();
     }
+  };
+
+  const sendMessage = async () => {
+    const trimmed = input.trim();
+    if (!trimmed || sending) {
+      return;
+    }
+    setInput("");
+    await runTurn({
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: trimmed,
+    });
   };
 
   const handleKeyDown = (
@@ -225,6 +254,67 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       sendMessage();
+    }
+  };
+
+  // ── Confirmations ──
+  // Changes the assistant wants to make to this visitor's data. They're held
+  // server-side until answered here: approving runs exactly the call that was
+  // held, so the buttons are the only way it happens.
+  const refreshConfirmations = useCallback(async () => {
+    try {
+      const token = await getToken(options);
+      const res = await fetch(
+        `${apiBaseUrl}/api/widget/approvals?chat_id=${encodeURIComponent(chatIdRef.current)}`,
+        {
+          headers: {
+            ...(options.publicId ? { "X-Public-Id": options.publicId } : {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        },
+      );
+      if (!res.ok) {
+        // A brand-new conversation has no chat row yet (404) — nothing pending
+        // is the right answer, not an error the visitor should see.
+        setConfirmations([]);
+        return;
+      }
+      setConfirmations((await res.json()) as Confirmation[]);
+    } catch {
+      // Offline / blocked: leave whatever is on screen rather than clearing a
+      // pending question the visitor may be about to answer.
+    }
+  }, [apiBaseUrl, options]);
+
+  const decideConfirmation = async (id: string, decision: "approve" | "reject") => {
+    if (deciding) {
+      return;
+    }
+    setDeciding(id);
+    try {
+      const token = await getToken(options);
+      const res = await fetch(`${apiBaseUrl}/api/widget/approvals/${id}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.publicId ? { "X-Public-Id": options.publicId } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ decision }),
+      });
+      if (!res.ok) {
+        setConfirmError(s.confirmFailed);
+        return;
+      }
+      setConfirmError(null);
+      setConfirmations((prev) => prev.filter((c) => c.id !== id));
+      // The answer is recorded; the conversation acts on it now and the
+      // assistant says what happened.
+      await runTurn();
+    } catch {
+      setConfirmError(s.confirmFailed);
+    } finally {
+      setDeciding(null);
     }
   };
 
@@ -325,14 +415,19 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
       } finally {
         setSending(false);
       }
+      // Reopening a conversation may land on a question the visitor left
+      // unanswered — the buttons have to come back with it.
+      void refreshConfirmations();
     },
-    [apiBaseUrl, authHeaders],
+    [apiBaseUrl, authHeaders, refreshConfirmations],
   );
 
   const newChat = useCallback(() => {
     chatIdRef.current = generateUuid();
     setMessages([]);
     setInput("");
+    setConfirmations([]);
+    setConfirmError(null);
     setView("chat");
   }, []);
 
@@ -469,6 +564,32 @@ export const App = ({ options }: { options: WidgetInitOptions }) => {
                   streaming={sending && i === lastIndex && message.role === "assistant"}
                 />
               ))}
+              {confirmations.map((c) => (
+                <div className="cb-confirm" key={c.id}>
+                  <p className="cb-confirm-text">
+                    {s.confirmTitle} <strong>{c.prompt}</strong>
+                  </p>
+                  <div className="cb-confirm-actions">
+                    <button
+                      type="button"
+                      className="cb-confirm-yes"
+                      disabled={deciding !== null || sending}
+                      onClick={() => decideConfirmation(c.id, "approve")}
+                    >
+                      {s.confirmApprove}
+                    </button>
+                    <button
+                      type="button"
+                      className="cb-confirm-no"
+                      disabled={deciding !== null || sending}
+                      onClick={() => decideConfirmation(c.id, "reject")}
+                    >
+                      {s.confirmReject}
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {confirmError && <p className="cb-confirm-error">{confirmError}</p>}
               <div ref={endRef} />
             </div>
 

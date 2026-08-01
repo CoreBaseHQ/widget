@@ -606,6 +606,73 @@
   border-bottom: 0;
 }
 
+/* Confirmation — the assistant is asking before it changes something.
+   Deliberately louder than a message bubble (border + tint): this is the one
+   place in the widget where the visitor's click has a side effect. */
+
+.cb-confirm {
+  margin: 4px 0 2px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--cb-accent, #0b5fff) 34%, transparent);
+  background: color-mix(in srgb, var(--cb-accent, #0b5fff) 8%, transparent);
+}
+
+.cb-confirm-text {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(var(--cb-text-rgb), 0.9);
+}
+
+.cb-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.cb-confirm-yes,
+.cb-confirm-no {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
+}
+
+.cb-confirm-yes {
+  border: 0;
+  background: var(--cb-accent, #0b5fff);
+  color: #ffffff;
+  color: oklch(from var(--cb-accent, #0b5fff) clamp(0, (l - 0.6) * -1000, 1) 0 0);
+}
+
+.cb-confirm-no {
+  border: 1px solid rgba(var(--cb-fg-rgb), 0.16);
+  background: transparent;
+  color: rgba(var(--cb-text-rgb), 0.75);
+}
+
+.cb-confirm-no:hover {
+  background: rgba(var(--cb-fg-rgb), 0.06);
+}
+
+.cb-confirm-yes:disabled,
+.cb-confirm-no:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.cb-confirm-error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #ef4444;
+}
+
 /* Composer */
 
 .cb-input {
